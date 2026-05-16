@@ -16,16 +16,14 @@ export default function Home() {
     setMarkdown("");
 
     try {
-      const res = await fetch("/api/convert", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim() }),
+      const jinaUrl = `https://r.jina.ai/${url.trim()}`;
+      const res = await fetch(jinaUrl, {
+        headers: { Accept: "text/markdown" },
       });
-      const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "変換に失敗しました");
+        setError(`取得エラー: ${res.status}`);
       } else {
-        setMarkdown(data.markdown);
+        setMarkdown(await res.text());
       }
     } catch {
       setError("ネットワークエラーが発生しました");
