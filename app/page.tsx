@@ -75,7 +75,11 @@ export default function Home() {
         setError(`取得エラー: ${res.status}`);
       } else {
         const text = await res.text();
-        setMarkdown(`${text}\n\n参照リンク: ${url.trim()}`);
+        const cleaned = text
+          .split("\n")
+          .filter((line) => !line.startsWith("URL Source:"))
+          .join("\n");
+        setMarkdown(`${cleaned}\n\n参照リンク: ${url.trim()}`);
       }
     } catch {
       setError("ネットワークエラーが発生しました");
