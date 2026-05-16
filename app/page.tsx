@@ -65,6 +65,12 @@ export default function Home() {
 
   const handleConvert = async () => {
     if (!url.trim()) return;
+    try {
+      new URL(url.trim());
+    } catch {
+      setError("有効なURLを入力してください");
+      return;
+    }
     setLoading(true);
     setError("");
     setMarkdown("");
@@ -132,10 +138,10 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">
-            URL to Markdown
+            URL to MD
           </h1>
           <p className="text-gray-400 text-sm mt-1">
-            URLを入力するとJina AIを使ってMarkdownに変換します
+            URLを入力するとMarkdownに変換します
           </p>
         </div>
 
