@@ -55,6 +55,7 @@ const ArrowDownTrayIcon = ({ className }: { className?: string }) => (
 
 export default function Home() {
   const [url, setUrl] = useState("");
+  const [title, setTitle] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -67,6 +68,7 @@ export default function Home() {
     setLoading(true);
     setError("");
     setMarkdown("");
+    setTitle("");
 
     try {
       const jinaUrl = `https://r.jina.ai/${url.trim()}`;
@@ -77,11 +79,24 @@ export default function Home() {
         setError(`取得エラー: ${res.status}`);
       } else {
         const text = await res.text();
-        const cleaned = text
-          .split("\n")
-          .filter((line) => !line.startsWith("URL Source:"))
-          .join("\n");
-        setMarkdown(`${cleaned}\n\n参照リンク: ${url.trim()}`);
+        const lines = text.split("\n");
+        let parsedTitle = "";
+        let contentStart = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i].startsWith("Title:")) {
+            parsedTitle = lines[i].replace(/^Title:\s*/, "").trim();
+          }
+          if (lines[i].startsWith("Markdown Content:")) {
+            contentStart = i + 1;
+            break;
+          }
+        }
+        setTitle(parsedTitle);
+        setMarkdown(
+          contentStart > 0
+            ? lines.slice(contentStart).join("\n").trimStart()
+            : text
+        );
       }
     } catch {
       setError("ネットワークエラーが発生しました");
@@ -150,6 +165,11 @@ export default function Home() {
 
         {markdown && (
           <div className="space-y-2">
+            {title && (
+              <p className="text-base font-semibold text-white truncate" title={title}>
+                {title}
+              </p>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-xs text-gray-500">
                 {markdown.length.toLocaleString()} 文字
