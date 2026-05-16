@@ -60,6 +60,8 @@ export default function Home() {
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
 
+  const hasContent = !!markdown || !!error || loading;
+
   const handleConvert = async () => {
     if (!url.trim()) return;
     setLoading(true);
@@ -75,7 +77,11 @@ export default function Home() {
         setError(`取得エラー: ${res.status}`);
       } else {
         const text = await res.text();
-        setMarkdown(`${text}\n\n参照リンク: ${url.trim()}`);
+        const cleaned = text
+          .split("\n")
+          .filter((line) => !line.startsWith("URL Source:"))
+          .join("\n");
+        setMarkdown(`${cleaned}\n\n参照リンク: ${url.trim()}`);
       }
     } catch {
       setError("ネットワークエラーが発生しました");
@@ -104,7 +110,10 @@ export default function Home() {
   };
 
   return (
-    <main className="min-h-screen bg-gray-950 text-gray-100 px-4 py-5 sm:p-6">
+    <main
+      className="min-h-screen bg-gray-950 text-gray-100 px-4 sm:px-6 pb-6 transition-[padding-top] duration-700 ease-in-out"
+      style={{ paddingTop: hasContent ? "24px" : "calc(50vh - 80px)" }}
+    >
       <div className="max-w-4xl mx-auto space-y-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">
