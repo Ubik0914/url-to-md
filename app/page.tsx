@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 const ClipboardDocumentIcon = ({ className }: { className?: string }) => (
@@ -235,12 +236,15 @@ export default function Home() {
           </div>
         )}
 
-        <footer className="text-center text-xs text-gray-500 pt-4 space-y-1">
-          <p>
-            使い方: URLを入力して「変換」をクリック。
-            <code className="text-gray-400">?url=...</code> で直接リンクも可能。
-          </p>
-          <p>
+        <footer className="text-center text-xs text-gray-500 pt-4 space-x-3">
+          <Link
+            href="/how-to-use"
+            className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
+          >
+            使い方
+          </Link>
+          <span className="text-gray-700">·</span>
+          <span>
             Powered by{" "}
             <a
               href="https://jina.ai/reader/"
@@ -250,7 +254,7 @@ export default function Home() {
             >
               Jina Reader
             </a>
-          </p>
+          </span>
         </footer>
       </div>
     </main>
