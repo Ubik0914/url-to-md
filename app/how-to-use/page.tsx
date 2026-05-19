@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import CopyableUrlBlock from "./CopyableUrlBlock";
 
 export const metadata: Metadata = {
   title: "How To Use | MDify",
@@ -19,7 +20,7 @@ export default function HowToUse() {
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">How To Use</h1>
           <p className="text-gray-400 text-sm">
-            MDify は、Web ページの URL を Markdown に変換するシンプルなツールです。
+            MDify は、Web ページの URL を Markdown に変換するツールです。
           </p>
         </header>
 
@@ -44,27 +45,7 @@ export default function HowToUse() {
             に対象 URL を付けてアクセスすると、ページを開いた時点で自動的に変換が走ります。
             ブックマークレットや他のツールと組み合わせる際に便利です。
           </p>
-          <pre className="bg-gray-900 border border-gray-800 rounded-lg px-4 py-3 text-xs text-gray-200 font-mono overflow-x-auto">
-            https://&lt;このサイト&gt;/?url=https://example.com
-          </pre>
-        </section>
-
-        <section className="space-y-3">
-          <h2 className="text-xl font-semibold text-white">仕組み</h2>
-          <p className="text-sm text-gray-300">
-            変換処理は{" "}
-            <a
-              href="https://jina.ai/reader/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
-            >
-              Jina Reader
-            </a>{" "}
-            (<code className="text-gray-100">https://r.jina.ai/</code>) に委ねています。
-            入力した URL はブラウザから Jina Reader に直接送信されます。
-            社内情報や認証が必要なページなど、外部に渡したくない URL の入力は避けてください。
-          </p>
+          <CopyableUrlBlock />
         </section>
 
         <section className="space-y-3">
@@ -72,11 +53,8 @@ export default function HowToUse() {
           <ul className="list-disc list-inside space-y-2 text-sm text-gray-300">
             <li>URL が <code className="text-gray-100">http(s)://</code> から始まっていることを確認してください。</li>
             <li>
-              ログインが必要なページや、JavaScript で大半のコンテンツを生成するページは、
+              ログインが必要なページや、JavaScript で DOM を生成するページは、
               本文が取得できないことがあります。
-            </li>
-            <li>
-              「取得エラー」が表示される場合は、Jina Reader 側で対象 URL に到達できていない可能性があります。少し時間を置いて再試行してください。
             </li>
           </ul>
         </section>
