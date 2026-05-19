@@ -161,7 +161,9 @@ export default function Home() {
       <div className="max-w-4xl mx-auto space-y-5">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold text-white">
-            URL to MD
+            <Link href="/" className="hover:text-gray-300 transition-colors">
+              MDify
+            </Link>
           </h1>
           <p className="text-gray-400 text-sm mt-1">
             URLを入力するとMarkdownに変換します
@@ -241,7 +243,7 @@ export default function Home() {
             href="/how-to-use"
             className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
           >
-            使い方
+            How To Use
           </Link>
           <span className="text-gray-700">·</span>
           <span>

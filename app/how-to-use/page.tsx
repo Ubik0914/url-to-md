@@ -2,8 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "使い方 | URL to MD",
-  description: "URL to MD の使い方",
+  title: "How To Use | MDify",
+  description: "MDify の使い方",
 };
 
 export default function HowToUse() {
@@ -17,9 +17,9 @@ export default function HowToUse() {
           >
             ← トップへ戻る
           </Link>
-          <h1 className="text-2xl sm:text-3xl font-bold text-white">使い方</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-white">How To Use</h1>
           <p className="text-gray-400 text-sm">
-            URL to MD は、Web ページの URL を Markdown に変換するシンプルなツールです。
+            MDify は、Web ページの URL を Markdown に変換するシンプルなツールです。
           </p>
         </header>
 
