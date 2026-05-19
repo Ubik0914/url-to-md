@@ -235,16 +235,22 @@ export default function Home() {
           </div>
         )}
 
-        <footer className="text-center text-xs text-gray-500 pt-4">
-          Powered by{" "}
-          <a
-            href="https://jina.ai/reader/"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
-          >
-            Jina Reader
-          </a>
+        <footer className="text-center text-xs text-gray-500 pt-4 space-y-1">
+          <p>
+            使い方: URLを入力して「変換」をクリック。
+            <code className="text-gray-400">?url=...</code> で直接リンクも可能。
+          </p>
+          <p>
+            Powered by{" "}
+            <a
+              href="https://jina.ai/reader/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
+            >
+              Jina Reader
+            </a>
+          </p>
         </footer>
       </div>
     </main>
