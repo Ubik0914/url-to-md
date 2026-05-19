@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const ClipboardDocumentIcon = ({ className }: { className?: string }) => (
   <svg
@@ -53,8 +53,13 @@ const ArrowDownTrayIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const getInitialUrl = () => {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("url") ?? "";
+};
+
 export default function Home() {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(getInitialUrl);
   const [title, setTitle] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [loading, setLoading] = useState(false);
@@ -62,11 +67,13 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
 
   const hasContent = !!markdown || !!error || loading;
+  const didAutoConvert = useRef(false);
 
-  const handleConvert = async () => {
-    if (!url.trim()) return;
+  const handleConvert = async (targetUrl?: string) => {
+    const value = (targetUrl ?? url).trim();
+    if (!value) return;
     try {
-      new URL(url.trim());
+      new URL(value);
     } catch {
       setError("有効なURLを入力してください");
       return;
@@ -76,8 +83,12 @@ export default function Home() {
     setMarkdown("");
     setTitle("");
 
+    const shareUrl = new URL(window.location.href);
+    shareUrl.searchParams.set("url", value);
+    window.history.replaceState(null, "", shareUrl.toString());
+
     try {
-      const jinaUrl = `https://r.jina.ai/${url.trim()}`;
+      const jinaUrl = `https://r.jina.ai/${value}`;
       const res = await fetch(jinaUrl, {
         headers: { Accept: "text/markdown" },
       });
@@ -110,6 +121,17 @@ export default function Home() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (didAutoConvert.current) return;
+    const initial = new URLSearchParams(window.location.search).get("url");
+    if (initial) {
+      didAutoConvert.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      handleConvert(initial);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(markdown);
@@ -155,7 +177,7 @@ export default function Home() {
             className="flex-1 bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 sm:py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
-            onClick={handleConvert}
+            onClick={() => handleConvert()}
             disabled={loading || !url.trim()}
             className="w-full sm:w-auto px-5 py-3 sm:py-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg text-sm font-medium transition-colors"
           >
