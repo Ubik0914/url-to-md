@@ -49,6 +49,25 @@ export default function HowToUse() {
         </section>
 
         <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-white">履歴(History)</h2>
+          <p className="text-sm text-gray-300">
+            変換した URL は{" "}
+            <Link
+              href="/history"
+              className="text-blue-400 hover:text-blue-300 underline underline-offset-2"
+            >
+              /history
+            </Link>{" "}
+            ページから一覧で確認・再変換できます。各項目の削除ボタン、または「すべて削除」ボタンでいつでも消去可能です。
+          </p>
+          <p className="text-sm text-gray-300">
+            <strong className="text-white">履歴はサーバーには保存されません。</strong>{" "}
+            お使いのブラウザの <code className="text-gray-100">localStorage</code>{" "}
+            にのみ保存され、サーバーには送信されません。ブラウザのデータを消去した場合や、別の端末・別のブラウザでは履歴は引き継がれません。
+          </p>
+        </section>
+
+        <section className="space-y-3">
           <h2 className="text-xl font-semibold text-white">うまく変換できないとき</h2>
           <ul className="list-disc list-inside space-y-2 text-sm text-gray-300">
             <li>URL が <code className="text-gray-100">http(s)://</code> から始まっていることを確認してください。</li>

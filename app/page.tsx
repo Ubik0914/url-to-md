@@ -89,6 +89,17 @@ export default function Home() {
     window.history.replaceState(null, "", shareUrl.toString());
 
     try {
+      const KEY = "mdify:history";
+      const raw = localStorage.getItem(KEY);
+      const prev: { url: string; at: number }[] = raw ? JSON.parse(raw) : [];
+      const next = [
+        { url: value, at: Date.now() },
+        ...prev.filter((e) => e.url !== value),
+      ].slice(0, 50);
+      localStorage.setItem(KEY, JSON.stringify(next));
+    } catch {}
+
+    try {
       const jinaUrl = `https://r.jina.ai/${value}`;
       const res = await fetch(jinaUrl, {
         headers: { Accept: "text/markdown" },
@@ -244,6 +255,13 @@ export default function Home() {
             className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
           >
             How To Use
+          </Link>
+          <span className="text-gray-700">·</span>
+          <Link
+            href="/history"
+            className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
+          >
+            History
           </Link>
           <span className="text-gray-700">·</span>
           <span>
