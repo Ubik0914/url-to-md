@@ -16,8 +16,6 @@ Web ページの URL を Markdown に変換するツールです。
 https://ubik0914.github.io/url-to-md/?url=https://example.com
 ```
 
-ブックマークレットや他のツールと組み合わせる際に便利です。
-
 ## 技術スタック
 
 - [Next.js](https://nextjs.org/) (App Router)
