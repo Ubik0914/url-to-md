@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const ClipboardDocumentIcon = ({ className }: { className?: string }) => (
   <svg
@@ -178,6 +178,27 @@ const chunkForTts = (text: string, maxLen = 150): string[] => {
 
 const TTS_SPEAKER_ID = 3;
 
+const fetchChunkAudio = async (text: string): Promise<HTMLAudioElement> => {
+  const res = await fetch(
+    `https://api.tts.quest/v3/voicevox/synthesis?speaker=${TTS_SPEAKER_ID}&text=${encodeURIComponent(text)}`
+  );
+  if (!res.ok) throw new Error(`tts http ${res.status}`);
+  const data = (await res.json()) as {
+    success?: boolean;
+    mp3StreamingUrl?: string;
+  };
+  if (!data.success || !data.mp3StreamingUrl) {
+    throw new Error("tts synthesis failed");
+  }
+  const audio = new Audio();
+  audio.preload = "auto";
+  audio.src = data.mp3StreamingUrl;
+  audio.load();
+  return audio;
+};
+
+type AbortToken = { aborted: boolean; onCleanup?: () => void };
+
 const getInitialUrl = () => {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("url") ?? "";
@@ -193,11 +214,35 @@ export default function Home() {
   const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing">(
     "idle"
   );
+  const [activeChunk, setActiveChunk] = useState(-1);
+
+  const chunks = useMemo(() => {
+    if (!markdown) return [] as string[];
+    const plain = stripMarkdownForSpeech(markdown);
+    return chunkForTts(plain, 150);
+  }, [markdown]);
 
   const hasContent = !!markdown || !!error || loading;
   const didAutoConvert = useRef(false);
   const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
-  const ttsAbortRef = useRef<{ aborted: boolean } | null>(null);
+  const ttsAbortRef = useRef<AbortToken | null>(null);
+  const prefetchCacheRef = useRef<Map<number, Promise<HTMLAudioElement>>>(
+    new Map()
+  );
+  const chunkListRef = useRef<HTMLDivElement | null>(null);
+
+  const stopSpeak = () => {
+    const abort = ttsAbortRef.current;
+    if (abort) {
+      abort.aborted = true;
+      abort.onCleanup?.();
+    }
+    const audio = ttsAudioRef.current;
+    if (audio) audio.pause();
+    ttsAudioRef.current = null;
+    setTtsState("idle");
+    setActiveChunk(-1);
+  };
 
   const handleConvert = async (targetUrl?: string) => {
     const value = (targetUrl ?? url).trim();
@@ -208,6 +253,7 @@ export default function Home() {
       setError("有効なURLを入力してください");
       return;
     }
+    stopSpeak();
     setLoading(true);
     setError("");
     setMarkdown("");
@@ -269,77 +315,123 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const stopSpeak = useCallback(() => {
-    if (ttsAbortRef.current) ttsAbortRef.current.aborted = true;
-    const audio = ttsAudioRef.current;
-    if (audio) {
-      audio.pause();
-      audio.removeAttribute("src");
-      audio.load();
-    }
-    ttsAudioRef.current = null;
-    setTtsState("idle");
-  }, []);
-
   useEffect(() => {
     return () => {
       stopSpeak();
     };
-  }, [stopSpeak]);
+  }, []);
 
-  const handleSpeak = async () => {
-    if (ttsState !== "idle") {
-      stopSpeak();
-      return;
+  useEffect(() => {
+    prefetchCacheRef.current.clear();
+  }, [chunks]);
+
+  const getChunkAudio = (
+    idx: number,
+    list: string[]
+  ): Promise<HTMLAudioElement> => {
+    const cache = prefetchCacheRef.current;
+    let p = cache.get(idx);
+    if (!p) {
+      p = fetchChunkAudio(list[idx]).catch((err) => {
+        cache.delete(idx);
+        throw err;
+      });
+      cache.set(idx, p);
     }
-    const plain = stripMarkdownForSpeech(markdown);
-    if (!plain) return;
-    const chunks = chunkForTts(plain, 150);
-    if (chunks.length === 0) return;
+    return p;
+  };
 
-    const abort = { aborted: false };
+  const speakFromIndex = async (startIdx: number) => {
+    const list = chunks;
+    if (startIdx < 0 || startIdx >= list.length) return;
+    stopSpeak();
+
+    const abort: AbortToken = { aborted: false };
     ttsAbortRef.current = abort;
     setTtsState("loading");
+    setActiveChunk(startIdx);
 
     try {
-      for (const chunk of chunks) {
+      void getChunkAudio(startIdx, list).catch(() => {});
+
+      for (let i = startIdx; i < list.length; i++) {
         if (abort.aborted) return;
-        const res = await fetch(
-          `https://api.tts.quest/v3/voicevox/synthesis?speaker=${TTS_SPEAKER_ID}&text=${encodeURIComponent(chunk)}`
-        );
-        if (!res.ok) throw new Error(`tts http ${res.status}`);
-        const data = (await res.json()) as {
-          success?: boolean;
-          mp3StreamingUrl?: string;
-        };
-        if (!data.success || !data.mp3StreamingUrl) {
-          throw new Error("tts synthesis failed");
+        setActiveChunk(i);
+        if (i + 1 < list.length) {
+          void getChunkAudio(i + 1, list).catch(() => {});
         }
+        const audio = await getChunkAudio(i, list);
         if (abort.aborted) return;
 
         await new Promise<void>((resolve, reject) => {
-          const audio = new Audio(data.mp3StreamingUrl);
           ttsAudioRef.current = audio;
-          audio.onended = () => resolve();
-          audio.onerror = () => reject(new Error("tts playback error"));
+          const cleanup = () => {
+            audio.onended = null;
+            audio.onerror = null;
+            abort.onCleanup = undefined;
+          };
+          audio.onended = () => {
+            cleanup();
+            resolve();
+          };
+          audio.onerror = () => {
+            cleanup();
+            reject(new Error("tts playback error"));
+          };
+          abort.onCleanup = () => {
+            cleanup();
+            resolve();
+          };
           if (abort.aborted) {
+            cleanup();
             resolve();
             return;
           }
           setTtsState("playing");
-          audio.play().catch(reject);
+          try {
+            audio.currentTime = 0;
+          } catch {}
+          audio.play().catch((err) => {
+            cleanup();
+            reject(err);
+          });
         });
         if (abort.aborted) return;
       }
     } catch (e) {
       console.error(e);
-      setError("読み上げに失敗しました");
+      if (!abort.aborted) setError("読み上げに失敗しました");
     } finally {
-      ttsAudioRef.current = null;
-      ttsAbortRef.current = null;
-      setTtsState("idle");
+      if (ttsAbortRef.current === abort) {
+        ttsAbortRef.current = null;
+        ttsAudioRef.current = null;
+        setTtsState("idle");
+        setActiveChunk(-1);
+      }
     }
   };
+
+  const handleSpeak = () => {
+    if (ttsState !== "idle") {
+      stopSpeak();
+      return;
+    }
+    void speakFromIndex(0);
+  };
+
+  const handleChunkClick = (idx: number) => {
+    void speakFromIndex(idx);
+  };
+
+  useEffect(() => {
+    if (activeChunk < 0) return;
+    const container = chunkListRef.current;
+    if (!container) return;
+    const el = container.querySelector<HTMLElement>(
+      `[data-chunk-idx="${activeChunk}"]`
+    );
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [activeChunk]);
 
   const handleDownload = () => {
     const blob = new Blob([markdown], { type: "text/markdown" });
@@ -457,11 +549,32 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <textarea
-              readOnly
-              value={markdown}
-              className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg px-4 py-3 text-sm text-gray-200 font-mono resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+            <div
+              ref={chunkListRef}
+              className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-2 overflow-y-auto text-sm text-gray-200 font-mono space-y-0.5"
+            >
+              {chunks.length === 0 ? (
+                <p className="px-2 py-1 text-gray-500">
+                  読み上げ可能な文字がありません
+                </p>
+              ) : (
+                chunks.map((chunk, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    data-chunk-idx={i}
+                    onClick={() => handleChunkClick(i)}
+                    className={`block w-full text-left px-2 py-1.5 rounded transition-colors whitespace-pre-wrap break-words ${
+                      activeChunk === i
+                        ? "bg-blue-600/40 text-white ring-1 ring-blue-400"
+                        : "hover:bg-gray-700 active:bg-gray-600"
+                    }`}
+                  >
+                    {chunk}
+                  </button>
+                ))
+              )}
+            </div>
           </div>
         )}
 
