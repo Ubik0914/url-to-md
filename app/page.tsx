@@ -59,9 +59,6 @@ const getInitialUrl = () => {
   return new URLSearchParams(window.location.search).get("url") ?? "";
 };
 
-const BOOKMARKLET_HREF =
-  "javascript:void(window.open('https://ubik0914.github.io/url-to-md/?url='+encodeURIComponent(location.href)))";
-
 export default function Home() {
   const [url, setUrl] = useState(getInitialUrl);
   const [title, setTitle] = useState("");
@@ -190,33 +187,6 @@ export default function Home() {
             {loading ? "変換中..." : "変換"}
           </button>
         </div>
-
-        {!hasContent && (
-          <div className="rounded-lg border border-gray-800 bg-gray-900/50 px-4 py-4 sm:py-5 space-y-3">
-            <div>
-              <p className="text-sm font-semibold text-white">ブックマークレット</p>
-              <p className="text-xs text-gray-400 mt-1">
-                下のボタンをブラウザのブックマークバーに{" "}
-                <span className="text-gray-200">ドラッグ＆ドロップ</span>{" "}
-                すると、開いているページからワンクリックで Markdown に変換できます。
-              </p>
-            </div>
-            <div className="flex items-center gap-3 flex-wrap">
-              <a
-                href={BOOKMARKLET_HREF}
-                draggable
-                onClick={(e) => e.preventDefault()}
-                title="ブックマークバーへドラッグ＆ドロップ"
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded-md text-xs font-medium text-white cursor-grab active:cursor-grabbing select-none shadow-sm"
-              >
-                📑 MDify this page
-              </a>
-              <span className="text-xs text-gray-500">
-                ← これをブックマークバーへ
-              </span>
-            </div>
-          </div>
-        )}
 
         {error && (
           <p className="text-red-400 text-sm bg-red-900/30 border border-red-800 rounded-lg px-4 py-3">

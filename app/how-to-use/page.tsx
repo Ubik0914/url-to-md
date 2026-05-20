@@ -43,7 +43,7 @@ export default function HowToUse() {
           <p className="text-sm text-gray-300">
             クエリパラメータ <code className="text-gray-100">?url=</code>{" "}
             に対象 URL を付けてアクセスすると、ページを開いた時点で自動的に変換が走ります。
-            ブックマークレットや他のツールと組み合わせる際に便利です。
+            他のツールと組み合わせる際に便利です。
           </p>
           <CopyableUrlBlock />
         </section>
