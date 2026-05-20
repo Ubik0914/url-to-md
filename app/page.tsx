@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 const ClipboardDocumentIcon = ({ className }: { className?: string }) => (
   <svg
@@ -54,6 +54,130 @@ const ArrowDownTrayIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+const SpeakerWaveIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z"
+    />
+  </svg>
+);
+
+const StopIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="currentColor"
+    viewBox="0 0 24 24"
+    className={className}
+  >
+    <path
+      fillRule="evenodd"
+      d="M4.5 7.5a3 3 0 0 1 3-3h9a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9Z"
+      clipRule="evenodd"
+    />
+  </svg>
+);
+
+const SpinnerIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    className={className}
+  >
+    <circle
+      cx="12"
+      cy="12"
+      r="9"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeDasharray="40 20"
+    />
+  </svg>
+);
+
+const stripMarkdownForSpeech = (md: string): string => {
+  let text = md;
+  text = text.replace(/```[\s\S]*?```/g, "");
+  text = text.replace(/`([^`]+)`/g, "$1");
+  text = text.replace(/<!--[\s\S]*?-->/g, "");
+  text = text.replace(/!\[[^\]]*\]\([^)]*\)/g, "");
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
+  text = text.replace(/^\s*\[[^\]]+\]:\s*\S+.*$/gm, "");
+  text = text.replace(/\[([^\]]+)\]\[[^\]]*\]/g, "$1");
+  text = text.replace(/<https?:\/\/[^>\s]+>/g, "");
+  text = text.replace(/<[^>]+>/g, "");
+  text = text.replace(/^\s*#{1,6}\s+/gm, "");
+  text = text.replace(/^\s*[=\-]{3,}\s*$/gm, "");
+  text = text.replace(/^\s*(?:\*\s*){3,}\s*$/gm, "");
+  text = text.replace(/^\s*(?:_\s*){3,}\s*$/gm, "");
+  text = text.replace(/^\s*>+\s?/gm, "");
+  text = text.replace(/^\s*[-*+]\s+/gm, "");
+  text = text.replace(/^\s*\d+\.\s+/gm, "");
+  text = text.replace(/^\s*\|?[\s:|\-]{3,}\|?\s*$/gm, "");
+  text = text.replace(/\|/g, " ");
+  text = text.replace(/\*\*\*([^*]+)\*\*\*/g, "$1");
+  text = text.replace(/___([^_]+)___/g, "$1");
+  text = text.replace(/\*\*([^*]+)\*\*/g, "$1");
+  text = text.replace(/__([^_]+)__/g, "$1");
+  text = text.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, "$1$2");
+  text = text.replace(/(^|[^_\w])_([^_\n]+)_(?!_)/g, "$1$2");
+  text = text.replace(/~~([^~]+)~~/g, "$1");
+  text = text.replace(/^\s*\[\^[^\]]+\]:.*$/gm, "");
+  text = text.replace(/\[\^[^\]]+\]/g, "");
+  text = text.replace(/[—–―−]/g, " ");
+  text = text
+    .split("\n")
+    .map((l) => l.replace(/[ \t]+/g, " ").trim())
+    .join("\n");
+  text = text.replace(/\n{2,}/g, "\n");
+  return text.trim();
+};
+
+const chunkForTts = (text: string, maxLen = 150): string[] => {
+  const chunks: string[] = [];
+  for (const para of text.split(/\n+/)) {
+    const trimmedPara = para.trim();
+    if (!trimmedPara) continue;
+    const sentences =
+      trimmedPara.match(/[^。！？\.!?]+(?:[。！？\.!?]+|$)/g) ?? [trimmedPara];
+    let current = "";
+    for (const raw of sentences) {
+      const s = raw.trim();
+      if (!s) continue;
+      if (s.length > maxLen) {
+        if (current) {
+          chunks.push(current);
+          current = "";
+        }
+        for (let i = 0; i < s.length; i += maxLen) {
+          chunks.push(s.slice(i, i + maxLen));
+        }
+        continue;
+      }
+      if (current && (current + s).length > maxLen) {
+        chunks.push(current);
+        current = s;
+      } else {
+        current += s;
+      }
+    }
+    if (current) chunks.push(current);
+  }
+  return chunks;
+};
+
+const TTS_SPEAKER_ID = 3;
+
 const getInitialUrl = () => {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("url") ?? "";
@@ -66,9 +190,14 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [copied, setCopied] = useState(false);
+  const [ttsState, setTtsState] = useState<"idle" | "loading" | "playing">(
+    "idle"
+  );
 
   const hasContent = !!markdown || !!error || loading;
   const didAutoConvert = useRef(false);
+  const ttsAudioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsAbortRef = useRef<{ aborted: boolean } | null>(null);
 
   const handleConvert = async (targetUrl?: string) => {
     const value = (targetUrl ?? url).trim();
@@ -140,6 +269,78 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const stopSpeak = useCallback(() => {
+    if (ttsAbortRef.current) ttsAbortRef.current.aborted = true;
+    const audio = ttsAudioRef.current;
+    if (audio) {
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+    }
+    ttsAudioRef.current = null;
+    setTtsState("idle");
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      stopSpeak();
+    };
+  }, [stopSpeak]);
+
+  const handleSpeak = async () => {
+    if (ttsState !== "idle") {
+      stopSpeak();
+      return;
+    }
+    const plain = stripMarkdownForSpeech(markdown);
+    if (!plain) return;
+    const chunks = chunkForTts(plain, 150);
+    if (chunks.length === 0) return;
+
+    const abort = { aborted: false };
+    ttsAbortRef.current = abort;
+    setTtsState("loading");
+
+    try {
+      for (const chunk of chunks) {
+        if (abort.aborted) return;
+        const res = await fetch(
+          `https://api.tts.quest/v3/voicevox/synthesis?speaker=${TTS_SPEAKER_ID}&text=${encodeURIComponent(chunk)}`
+        );
+        if (!res.ok) throw new Error(`tts http ${res.status}`);
+        const data = (await res.json()) as {
+          success?: boolean;
+          mp3StreamingUrl?: string;
+        };
+        if (!data.success || !data.mp3StreamingUrl) {
+          throw new Error("tts synthesis failed");
+        }
+        if (abort.aborted) return;
+
+        await new Promise<void>((resolve, reject) => {
+          const audio = new Audio(data.mp3StreamingUrl);
+          ttsAudioRef.current = audio;
+          audio.onended = () => resolve();
+          audio.onerror = () => reject(new Error("tts playback error"));
+          if (abort.aborted) {
+            resolve();
+            return;
+          }
+          setTtsState("playing");
+          audio.play().catch(reject);
+        });
+        if (abort.aborted) return;
+      }
+    } catch (e) {
+      console.error(e);
+      setError("読み上げに失敗しました");
+    } finally {
+      ttsAudioRef.current = null;
+      ttsAbortRef.current = null;
+      setTtsState("idle");
+    }
+  };
+
   const handleDownload = () => {
     const blob = new Blob([markdown], { type: "text/markdown" });
     const a = document.createElement("a");
@@ -207,6 +408,32 @@ export default function Home() {
               </span>
               <div className="flex gap-2">
                 <button
+                  onClick={handleSpeak}
+                  title={
+                    ttsState === "playing"
+                      ? "停止"
+                      : ttsState === "loading"
+                      ? "読み込み中..."
+                      : "読み上げ"
+                  }
+                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-md text-xs transition-colors min-w-[44px] min-h-[44px] sm:min-h-0 justify-center"
+                >
+                  {ttsState === "playing" ? (
+                    <StopIcon className="w-4 h-4 text-red-400" />
+                  ) : ttsState === "loading" ? (
+                    <SpinnerIcon className="w-4 h-4 animate-spin text-blue-300" />
+                  ) : (
+                    <SpeakerWaveIcon className="w-4 h-4" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {ttsState === "playing"
+                      ? "停止"
+                      : ttsState === "loading"
+                      ? "読み込み中..."
+                      : "読み上げ"}
+                  </span>
+                </button>
+                <button
                   onClick={handleCopy}
                   title={copied ? "コピーしました!" : "コピー"}
                   className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-md text-xs transition-colors min-w-[44px] min-h-[44px] sm:min-h-0 justify-center"
@@ -255,6 +482,15 @@ export default function Home() {
               className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
             >
               Jina Reader
+            </a>
+            {" / "}
+            <a
+              href="https://voicevox.su-shiki.com/su-shikiapis/ttsquest/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-gray-400 hover:text-gray-200 underline underline-offset-2"
+            >
+              TTS Quest VOICEVOX API
             </a>
           </span>
         </footer>
