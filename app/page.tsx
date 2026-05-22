@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { marked } from "marked";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 const ClipboardDocumentIcon = ({ className }: { className?: string }) => (
@@ -50,6 +51,45 @@ const ArrowDownTrayIcon = ({ className }: { className?: string }) => (
       strokeLinecap="round"
       strokeLinejoin="round"
       d="M3 16.5V18.75C3 19.9926 4.00736 21 5.25 21H18.75C19.9926 21 21 19.9926 21 18.75V16.5M16.5 12L12 16.5M12 16.5L7.5 12M12 16.5V3"
+    />
+  </svg>
+);
+
+const CodeBracketIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M17.25 6.75 22.5 12l-5.25 5.25M6.75 17.25 1.5 12l5.25-5.25M14.25 4.5l-4.5 15"
+    />
+  </svg>
+);
+
+const EyeIcon = ({ className }: { className?: string }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    fill="none"
+    viewBox="0 0 24 24"
+    strokeWidth={1.5}
+    stroke="currentColor"
+    className={className}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+    />
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
     />
   </svg>
 );
@@ -215,12 +255,20 @@ export default function Home() {
     "idle"
   );
   const [activeChunk, setActiveChunk] = useState(-1);
+  const [viewMode, setViewMode] = useState<"source" | "preview">("source");
 
   const chunks = useMemo(() => {
     if (!markdown) return [] as string[];
     const plain = stripMarkdownForSpeech(markdown);
     return chunkForTts(plain, 150);
   }, [markdown]);
+
+  const previewHtml = useMemo(() => {
+    if (!markdown) return "";
+    return marked.parse(markdown, { async: false, gfm: true }) as string;
+  }, [markdown]);
+
+  const ttsActive = ttsState !== "idle";
 
   const hasContent = !!markdown || !!error || loading;
   const didAutoConvert = useRef(false);
@@ -494,10 +542,40 @@ export default function Home() {
                 {title}
               </p>
             )}
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-gray-500">
-                {markdown.length.toLocaleString()} 文字
-              </span>
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="inline-flex rounded-md border border-gray-700 bg-gray-800 p-0.5 text-xs">
+                  <button
+                    onClick={() => setViewMode("source")}
+                    disabled={ttsActive}
+                    title="ソース"
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      viewMode === "source"
+                        ? "bg-gray-600 text-white"
+                        : "text-gray-300 hover:bg-gray-700"
+                    }`}
+                  >
+                    <CodeBracketIcon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">ソース</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode("preview")}
+                    disabled={ttsActive}
+                    title="プレビュー"
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                      viewMode === "preview"
+                        ? "bg-gray-600 text-white"
+                        : "text-gray-300 hover:bg-gray-700"
+                    }`}
+                  >
+                    <EyeIcon className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">プレビュー</span>
+                  </button>
+                </div>
+                <span className="text-xs text-gray-500">
+                  {markdown.length.toLocaleString()} 文字
+                </span>
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={handleSpeak}
@@ -549,32 +627,43 @@ export default function Home() {
                 </button>
               </div>
             </div>
-            <div
-              ref={chunkListRef}
-              className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-2 overflow-y-auto text-sm text-gray-200 font-mono space-y-0.5"
-            >
-              {chunks.length === 0 ? (
-                <p className="px-2 py-1 text-gray-500">
-                  読み上げ可能な文字がありません
-                </p>
-              ) : (
-                chunks.map((chunk, i) => (
-                  <button
-                    key={i}
-                    type="button"
-                    data-chunk-idx={i}
-                    onClick={() => handleChunkClick(i)}
-                    className={`block w-full text-left px-2 py-1.5 rounded transition-colors whitespace-pre-wrap break-words ${
-                      activeChunk === i
-                        ? "bg-blue-600/40 text-white ring-1 ring-blue-400"
-                        : "hover:bg-gray-700 active:bg-gray-600"
-                    }`}
-                  >
-                    {chunk}
-                  </button>
-                ))
-              )}
-            </div>
+            {ttsActive ? (
+              <div
+                ref={chunkListRef}
+                className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-2 overflow-y-auto text-sm text-gray-200 font-mono space-y-0.5"
+              >
+                {chunks.length === 0 ? (
+                  <p className="px-2 py-1 text-gray-500">
+                    読み上げ可能な文字がありません
+                  </p>
+                ) : (
+                  chunks.map((chunk, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      data-chunk-idx={i}
+                      onClick={() => handleChunkClick(i)}
+                      className={`block w-full text-left px-2 py-1.5 rounded transition-colors whitespace-pre-wrap break-words ${
+                        activeChunk === i
+                          ? "bg-blue-600/40 text-white ring-1 ring-blue-400"
+                          : "hover:bg-gray-700 active:bg-gray-600"
+                      }`}
+                    >
+                      {chunk}
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : viewMode === "preview" ? (
+              <div
+                className="markdown-preview w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-y-auto text-sm text-gray-200"
+                dangerouslySetInnerHTML={{ __html: previewHtml }}
+              />
+            ) : (
+              <pre className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-auto text-sm text-gray-200 font-mono whitespace-pre-wrap break-words">
+                {markdown}
+              </pre>
+            )}
           </div>
         )}
 
