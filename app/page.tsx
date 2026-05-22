@@ -217,6 +217,7 @@ const chunkForTts = (text: string, maxLen = 150): string[] => {
 };
 
 const TTS_SPEAKER_ID = 3;
+const TTS_PREFETCH_AHEAD = 2;
 
 const fetchChunkAudio = async (text: string): Promise<HTMLAudioElement> => {
   const res = await fetch(
@@ -400,13 +401,20 @@ export default function Home() {
     setActiveChunk(startIdx);
 
     try {
-      void getChunkAudio(startIdx, list).catch(() => {});
+      for (let k = 0; k <= TTS_PREFETCH_AHEAD; k++) {
+        const idx = startIdx + k;
+        if (idx < list.length) {
+          void getChunkAudio(idx, list).catch(() => {});
+        }
+      }
 
       for (let i = startIdx; i < list.length; i++) {
         if (abort.aborted) return;
         setActiveChunk(i);
-        if (i + 1 < list.length) {
-          void getChunkAudio(i + 1, list).catch(() => {});
+        for (let k = 1; k <= TTS_PREFETCH_AHEAD; k++) {
+          if (i + k < list.length) {
+            void getChunkAudio(i + k, list).catch(() => {});
+          }
         }
         const audio = await getChunkAudio(i, list);
         if (abort.aborted) return;
