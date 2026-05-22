@@ -219,23 +219,63 @@ const chunkForTts = (text: string, maxLen = 150): string[] => {
 const TTS_SPEAKER_ID = 3;
 const TTS_PREFETCH_AHEAD = 2;
 
+const TTS_FETCH_ATTEMPTS = 3;
+const TTS_FETCH_TIMEOUT_MS = 15000;
+
 const fetchChunkAudio = async (text: string): Promise<HTMLAudioElement> => {
-  const res = await fetch(
-    `https://api.tts.quest/v3/voicevox/synthesis?speaker=${TTS_SPEAKER_ID}&text=${encodeURIComponent(text)}`
-  );
-  if (!res.ok) throw new Error(`tts http ${res.status}`);
-  const data = (await res.json()) as {
-    success?: boolean;
-    mp3StreamingUrl?: string;
-  };
-  if (!data.success || !data.mp3StreamingUrl) {
-    throw new Error("tts synthesis failed");
+  let lastError: unknown = new Error("tts unavailable");
+  for (let attempt = 0; attempt < TTS_FETCH_ATTEMPTS; attempt++) {
+    try {
+      const res = await fetch(
+        `https://api.tts.quest/v3/voicevox/synthesis?speaker=${TTS_SPEAKER_ID}&text=${encodeURIComponent(text)}`
+      );
+      if (!res.ok) throw new Error(`tts http ${res.status}`);
+      const data = (await res.json()) as {
+        success?: boolean;
+        mp3StreamingUrl?: string;
+        retryAfterSeconds?: number;
+      };
+      if (!data.success || !data.mp3StreamingUrl) {
+        const wait = Math.min((data.retryAfterSeconds ?? 0) * 1000, 3000);
+        if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+        throw new Error("tts synthesis not ready");
+      }
+      const audio = new Audio();
+      audio.preload = "auto";
+      audio.src = data.mp3StreamingUrl;
+      await new Promise<void>((resolve, reject) => {
+        const cleanup = () => {
+          audio.removeEventListener("canplay", onReady);
+          audio.removeEventListener("loadedmetadata", onReady);
+          audio.removeEventListener("error", onErr);
+          clearTimeout(timer);
+        };
+        const onReady = () => {
+          cleanup();
+          resolve();
+        };
+        const onErr = () => {
+          cleanup();
+          reject(new Error("audio load failed"));
+        };
+        audio.addEventListener("canplay", onReady);
+        audio.addEventListener("loadedmetadata", onReady);
+        audio.addEventListener("error", onErr);
+        const timer = setTimeout(() => {
+          cleanup();
+          reject(new Error("audio load timeout"));
+        }, TTS_FETCH_TIMEOUT_MS);
+        audio.load();
+      });
+      return audio;
+    } catch (err) {
+      lastError = err;
+      if (attempt < TTS_FETCH_ATTEMPTS - 1) {
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      }
+    }
   }
-  const audio = new Audio();
-  audio.preload = "auto";
-  audio.src = data.mp3StreamingUrl;
-  audio.load();
-  return audio;
+  throw lastError;
 };
 
 type AbortToken = { aborted: boolean; onCleanup?: () => void };
@@ -411,6 +451,7 @@ export default function Home() {
       for (let i = startIdx; i < list.length; i++) {
         if (abort.aborted) return;
         setActiveChunk(i);
+        setTtsState("loading");
         for (let k = 1; k <= TTS_PREFETCH_AHEAD; k++) {
           if (i + k < list.length) {
             void getChunkAudio(i + k, list).catch(() => {});
@@ -424,6 +465,7 @@ export default function Home() {
           const cleanup = () => {
             audio.onended = null;
             audio.onerror = null;
+            audio.onplaying = null;
             abort.onCleanup = undefined;
           };
           audio.onended = () => {
@@ -434,6 +476,9 @@ export default function Home() {
             cleanup();
             reject(new Error("tts playback error"));
           };
+          audio.onplaying = () => {
+            if (!abort.aborted) setTtsState("playing");
+          };
           abort.onCleanup = () => {
             cleanup();
             resolve();
@@ -443,7 +488,6 @@ export default function Home() {
             resolve();
             return;
           }
-          setTtsState("playing");
           try {
             audio.currentTime = 0;
           } catch {}
@@ -583,6 +627,11 @@ export default function Home() {
                 <span className="text-xs text-gray-500">
                   {markdown.length.toLocaleString()} 文字
                 </span>
+                {ttsActive && chunks.length > 0 && (
+                  <span className="text-xs text-blue-300 tabular-nums">
+                    {Math.max(activeChunk, 0) + 1} / {chunks.length} 行
+                  </span>
+                )}
               </div>
               <div className="flex gap-2">
                 <button
@@ -651,13 +700,20 @@ export default function Home() {
                       type="button"
                       data-chunk-idx={i}
                       onClick={() => handleChunkClick(i)}
-                      className={`block w-full text-left px-2 py-1.5 rounded transition-colors whitespace-pre-wrap break-words ${
+                      className={`flex w-full items-start gap-2 text-left px-2 py-1.5 rounded transition-colors whitespace-pre-wrap break-words ${
                         activeChunk === i
                           ? "bg-blue-600/40 text-white ring-1 ring-blue-400"
                           : "hover:bg-gray-700 active:bg-gray-600"
                       }`}
                     >
-                      {chunk}
+                      <span
+                        className={`shrink-0 w-8 pr-2 text-right tabular-nums select-none ${
+                          activeChunk === i ? "text-blue-200" : "text-gray-500"
+                        }`}
+                      >
+                        {i + 1}
+                      </span>
+                      <span className="flex-1 min-w-0">{chunk}</span>
                     </button>
                   ))
                 )}
