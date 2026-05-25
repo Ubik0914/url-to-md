@@ -735,9 +735,12 @@ export default function Home() {
                 dangerouslySetInnerHTML={{ __html: previewHtml }}
               />
             ) : (
-              <pre className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-auto text-sm text-gray-200 font-mono whitespace-pre-wrap break-words">
-                {markdown}
-              </pre>
+              <textarea
+                value={markdown}
+                onChange={(e) => setMarkdown(e.target.value)}
+                spellCheck={false}
+                className="w-full h-[55vh] sm:h-[60vh] bg-gray-800 border border-gray-700 rounded-lg p-4 overflow-auto text-sm text-gray-200 font-mono whitespace-pre-wrap break-words resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             )}
           </div>
         )}
