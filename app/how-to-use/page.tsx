@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import CopyableUrlBlock from "./CopyableUrlBlock";
+import BetaToggle from "./BetaToggle";
 
 export const metadata: Metadata = {
   title: "How To Use | MDify",
@@ -57,6 +58,21 @@ export default function HowToUse() {
               本文が取得できないことがあります。
             </li>
           </ul>
+        </section>
+
+        <section className="space-y-3">
+          <h2 className="text-xl font-semibold text-white">
+            ベータ機能{" "}
+            <span className="align-middle text-xs font-medium text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1.5 py-0.5">
+              BETA
+            </span>
+          </h2>
+          <p className="text-sm text-gray-300">
+            読み上げ機能は<strong className="text-amber-300">ベータ版</strong>です。
+            変換結果のテキストを音声で読み上げます。外部の音声合成 API を利用するため、
+            動作が不安定だったり、読み上げ開始まで時間がかかったりすることがあります。
+          </p>
+          <BetaToggle />
         </section>
 
         <footer className="text-center text-xs text-gray-500 pt-4">
