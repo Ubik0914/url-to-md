@@ -146,6 +146,121 @@ const SpinnerIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
+function extractYouTubeVideoId(url: string): string | null {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      const v = u.searchParams.get("v");
+      if (v) return v;
+      const m = u.pathname.match(/\/(?:shorts|embed|v)\/([^/?]+)/);
+      if (m) return m[1];
+    }
+    if (host === "youtu.be")
+      return u.pathname.slice(1).split(/[?/]/)[0] || null;
+  } catch {}
+  return null;
+}
+
+interface CaptionTrack {
+  baseUrl: string;
+  languageCode: string;
+  kind?: string;
+}
+
+async function proxyFetch(url: string): Promise<string> {
+  const proxies = [
+    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+    `https://corsproxy.io/?${encodeURIComponent(url)}`,
+  ];
+  for (const proxy of proxies) {
+    try {
+      const res = await fetch(proxy, { signal: AbortSignal.timeout(12000) });
+      if (!res.ok) continue;
+      return await res.text();
+    } catch {}
+  }
+  throw new Error("プロキシ経由での取得に失敗しました");
+}
+
+async function fetchYouTubeMarkdown(
+  videoId: string
+): Promise<{ title: string; markdown: string }> {
+  const html = await proxyFetch(
+    `https://www.youtube.com/watch?v=${videoId}&hl=ja`
+  );
+
+  const marker = "ytInitialPlayerResponse = ";
+  const mi = html.indexOf(marker);
+  if (mi < 0) throw new Error("動画情報が見つかりませんでした");
+
+  let depth = 0,
+    end = 0;
+  for (let i = mi + marker.length; i < html.length; i++) {
+    if (html[i] === "{") depth++;
+    else if (html[i] === "}" && --depth === 0) {
+      end = i + 1;
+      break;
+    }
+  }
+
+  const pr = JSON.parse(html.slice(mi + marker.length, end)) as {
+    videoDetails?: {
+      title?: string;
+      shortDescription?: string;
+      author?: string;
+    };
+    captions?: {
+      playerCaptionsTracklistRenderer?: { captionTracks?: CaptionTrack[] };
+    };
+  };
+
+  const title = pr.videoDetails?.title ?? "";
+  const channel = pr.videoDetails?.author ?? "";
+  const desc = pr.videoDetails?.shortDescription ?? "";
+  const tracks =
+    pr.captions?.playerCaptionsTracklistRenderer?.captionTracks ?? [];
+
+  const parts: string[] = [];
+  if (title) parts.push(`# ${title}`);
+  if (channel) parts.push(`**チャンネル:** ${channel}`);
+  if (desc) parts.push(`\n## 概要\n\n${desc}`);
+
+  if (tracks.length === 0) {
+    parts.push("\n\n*字幕なし*");
+    return { title, markdown: parts.join("\n") };
+  }
+
+  const pick =
+    tracks.find((t) => t.languageCode.startsWith("ja")) ??
+    tracks.find(
+      (t) => t.languageCode.startsWith("en") && t.kind !== "asr"
+    ) ??
+    tracks[0];
+
+  const captionXml = await proxyFetch(`${pick.baseUrl}&fmt=xml`);
+  const texts: string[] = [];
+  for (const m of captionXml.matchAll(/<text[^>]*>([\s\S]*?)<\/text>/g)) {
+    const t = m[1]
+      .replace(/&amp;/g, "&")
+      .replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\n/g, " ")
+      .trim();
+    if (t) texts.push(t);
+  }
+
+  if (texts.length > 0) {
+    const lang =
+      pick.languageCode + (pick.kind === "asr" ? " (自動生成)" : "");
+    parts.push(`\n## 字幕 [${lang}]\n\n${texts.join(" ")}`);
+  }
+
+  return { title, markdown: parts.join("\n") };
+}
+
 const stripMarkdownForSpeech = (md: string): string => {
   let text = md;
   text = text.replace(/```[\s\S]*?```/g, "");
@@ -359,6 +474,18 @@ export default function Home() {
     window.history.replaceState(null, "", shareUrl.toString());
 
     try {
+      const videoId = extractYouTubeVideoId(value);
+      if (videoId) {
+        try {
+          const { title: t, markdown: md } = await fetchYouTubeMarkdown(videoId);
+          setTitle(t);
+          setMarkdown(md);
+          return;
+        } catch {
+          // fall through to Jina Reader
+        }
+      }
+
       const jinaUrl = `https://r.jina.ai/${value}`;
       const res = await fetch(jinaUrl, {
         headers: { Accept: "text/markdown" },
