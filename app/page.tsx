@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { marked } from "marked";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { TTS_BETA_STORAGE_KEY } from "./how-to-use/BetaToggle";
 
 const ClipboardDocumentIcon = ({ className }: { className?: string }) => (
   <svg
@@ -297,6 +298,11 @@ export default function Home() {
   );
   const [activeChunk, setActiveChunk] = useState(-1);
   const [viewMode, setViewMode] = useState<"source" | "preview">("source");
+  const [ttsBetaEnabled, setTtsBetaEnabled] = useState(false);
+
+  useEffect(() => {
+    setTtsBetaEnabled(localStorage.getItem(TTS_BETA_STORAGE_KEY) === "true");
+  }, []);
 
   const chunks = useMemo(() => {
     if (!markdown) return [] as string[];
@@ -634,32 +640,37 @@ export default function Home() {
                 )}
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={handleSpeak}
-                  title={
-                    ttsState === "playing"
-                      ? "停止"
-                      : ttsState === "loading"
-                      ? "読み込み中..."
-                      : "読み上げ"
-                  }
-                  className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-md text-xs transition-colors min-w-[44px] min-h-[44px] sm:min-h-0 justify-center"
-                >
-                  {ttsState === "playing" ? (
-                    <StopIcon className="w-4 h-4 text-red-400" />
-                  ) : ttsState === "loading" ? (
-                    <SpinnerIcon className="w-4 h-4 animate-spin text-blue-300" />
-                  ) : (
-                    <SpeakerWaveIcon className="w-4 h-4" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {ttsState === "playing"
-                      ? "停止"
-                      : ttsState === "loading"
-                      ? "読み込み中..."
-                      : "読み上げ"}
-                  </span>
-                </button>
+                {ttsBetaEnabled && (
+                  <button
+                    onClick={handleSpeak}
+                    title={
+                      ttsState === "playing"
+                        ? "停止"
+                        : ttsState === "loading"
+                        ? "読み込み中..."
+                        : "読み上げ (ベータ)"
+                    }
+                    className="flex items-center gap-1.5 px-3 py-2 bg-gray-700 hover:bg-gray-600 active:bg-gray-500 rounded-md text-xs transition-colors min-w-[44px] min-h-[44px] sm:min-h-0 justify-center"
+                  >
+                    {ttsState === "playing" ? (
+                      <StopIcon className="w-4 h-4 text-red-400" />
+                    ) : ttsState === "loading" ? (
+                      <SpinnerIcon className="w-4 h-4 animate-spin text-blue-300" />
+                    ) : (
+                      <SpeakerWaveIcon className="w-4 h-4" />
+                    )}
+                    <span className="hidden sm:inline">
+                      {ttsState === "playing"
+                        ? "停止"
+                        : ttsState === "loading"
+                        ? "読み込み中..."
+                        : "読み上げ"}
+                    </span>
+                    <span className="text-[10px] font-medium text-amber-400 border border-amber-500/40 bg-amber-500/10 rounded px-1 leading-tight">
+                      BETA
+                    </span>
+                  </button>
+                )}
                 <button
                   onClick={handleCopy}
                   title={copied ? "コピーしました!" : "コピー"}
