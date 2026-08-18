@@ -1,5 +1,16 @@
 {
   "betaFeatures": false,
   "showDotDirs": false,
-  "searchSort": "name"
+  "showClaudeMd": false,
+  "showImages": false,
+  "searchSort": "name",
+  "language": "auto",
+  "folderIcon": "folder",
+  "noteFont": "system",
+  "interfaceFont": "system",
+  "codeFont": "system",
+  "noteFontSize": 16,
+  "noteWidth": 100,
+  "publicReadonly": true,
+  "autosaveDelayMs": 5000
 }
