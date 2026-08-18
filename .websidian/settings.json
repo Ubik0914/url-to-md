@@ -11,6 +11,6 @@
   "codeFont": "system",
   "noteFontSize": 16,
   "noteWidth": 100,
-  "publicReadonly": true,
+  "publicReadonly": false,
   "autosaveDelayMs": 5000
 }
